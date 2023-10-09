@@ -74,8 +74,8 @@ class TrackBuilder:
 
     def setInstancePoses(self, line, theta, skip_one=False):
         quat = np.zeros((len(theta), 4))
-        quat[:, 0] = np.sin(theta / 2) * 0
-        quat[:, 1] = np.sin(theta / 2) * 0
+        quat[:, 0] = 0
+        quat[:, 1] = 0
         quat[:, 2] = np.sin(theta / 2)
         quat[:, 3] = np.cos(theta / 2)
         z = np.zeros_like(line[:, 0])
