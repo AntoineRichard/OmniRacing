@@ -18,8 +18,8 @@ track_cfg = {
         "min_radius": 0.25,
         "resampling_samples": 1000,
         "theta_noise": 0.0,
-        "track_width": 10.0,
-        "track_length": 20.0,
+        "track_width": 13.0,
+        "track_length": 26.0,
         "track_thickness": 1.0,
         "seed": 42,
         "resolution": 0.01,
@@ -72,3 +72,4 @@ if __name__ == "__main__":
             TB.randomize()
             i = 0
         i += 1
+    simulation_app.close()
