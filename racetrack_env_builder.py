@@ -15,6 +15,7 @@ from racetrack_utils import (
 
 from WorldBuilders.pxr_utils import (
     createStandaloneInstance,
+    createInstancerAndCache4Variants,
     setInstancerParameters,
     addDefaultOps,
     setDefaultOps,

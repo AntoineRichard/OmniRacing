@@ -9,7 +9,7 @@ from omni.isaac.core import World
 track_cfg = {
     "name": "track",
     "line_thickness": 0.001,
-    "line_length": 0.15,
+    "line_length": 0.8,
     "line_width": 0.05,
     "track_config": {
         "name": "random_angular",
