@@ -1,5 +1,9 @@
 import omni
-from WorldBuilders.pxr_utils import createStandaloneInstance, setInstancerParameters, createInstancerAndCache4Variants
+from WorldBuilders.pxr_utils import (
+    createStandaloneInstance,
+    setInstancerParameters,
+    createInstancerAndCache4Variants,
+)
 from racetrack_utils import createCubeLikeObject, bindMaterial
 import dataclasses
 from pxr import Sdf, Gf, UsdGeom
@@ -8,12 +12,14 @@ import numpy as np
 from racetrack_configs import CFGF
 from racetrack_generators import RGF
 
-ASSET_LIST = ["/home/antoine/Documents/OmniRacing/assets/cone_1.usd",
-              "/home/antoine/Documents/OmniRacing/assets/cone_2.usd",
-              "/home/antoine/Documents/OmniRacing/assets/cone_3.usd",
-              "/home/antoine/Documents/OmniRacing/assets/cone_4.usd",
-              "/home/antoine/Documents/OmniRacing/assets/cone_5.usd",
-              "/home/antoine/Documents/OmniRacing/assets/cone_6.usd"]
+ASSET_LIST = [
+    "assets/cones/cone_1.usd",
+    "assets/cones/cone_2.usd",
+    "assets/cones/cone_3.usd",
+    "assets/cones/cone_4.usd",
+    "assets/cones/cone_5.usd",
+    "assets/cones/cone_6.usd",
+]
 
 
 @dataclasses.dataclass
@@ -44,22 +50,24 @@ class TrackBuilder:
     def instantiateTrackElements(self):
         xformPrim = UsdGeom.Xform.Define(self.stage, self.stage_path)
         self.instancer_path = self.stage_path + "/instancer"
-        createInstancerAndCache4Variants(self.stage, self.instancer_path, ASSET_LIST, "shadingVariant")
-        #instancer = createStandaloneInstance(self.stage, self.instancer_path)
-        #self.white_line_path = self.instancer_path + "/white_line"
-        #self.black_line_path = self.instancer_path + "/black_line"
-        #createCubeLikeObject(
+        createInstancerAndCache4Variants(
+            self.stage, self.instancer_path, ASSET_LIST, "shadingVariant"
+        )
+        # instancer = createStandaloneInstance(self.stage, self.instancer_path)
+        # self.white_line_path = self.instancer_path + "/white_line"
+        # self.black_line_path = self.instancer_path + "/black_line"
+        # createCubeLikeObject(
         #    self.stage, self.white_line_path, (0.15, 0.05, 0.001), (0, 0, 0)
-        #)
-        #bindMaterial(self.stage, "/Looks/panels", self.white_line_path)
-        #createCubeLikeObject(
+        # )
+        # bindMaterial(self.stage, "/Looks/panels", self.white_line_path)
+        # createCubeLikeObject(
         #    self.stage, self.black_line_path, (0.15, 0.05, 0.0005), (0, 0, 0)
-        #)
-        #bindMaterial(self.stage, "/Looks/stairs", self.black_line_path)
-        #instancer.GetPrototypesRel().AddTarget(self.white_line_path)
-        #instancer.GetPrototypesRel().AddTarget(self.black_line_path)
-        #self.white_line_id = 0
-        #self.black_line_id = 1
+        # )
+        # bindMaterial(self.stage, "/Looks/stairs", self.black_line_path)
+        # instancer.GetPrototypesRel().AddTarget(self.white_line_path)
+        # instancer.GetPrototypesRel().AddTarget(self.black_line_path)
+        # self.white_line_id = 0
+        # self.black_line_id = 1
 
     def randomize(self):
         self.instances_position = []
@@ -75,7 +83,7 @@ class TrackBuilder:
         )
         inner_line, inner_line_theta = inner_line
         outer_line, outer_line_theta = outer_line
-        #self.setInstancePoses(center_line, center_line_theta, skip_one=True)
+        # self.setInstancePoses(center_line, center_line_theta, skip_one=True)
         self.setInstancePoses(inner_line, inner_line_theta)
         self.setInstancePoses(outer_line, outer_line_theta)
         self.updateInstancer()
@@ -88,12 +96,12 @@ class TrackBuilder:
         quat[:, 3] = np.cos(theta / 2)
         z = np.zeros_like(line[:, 0])
         pos = np.stack([line[:, 0], line[:, 1], z], axis=1)
-        #id = np.ones_like(z)
-        #if skip_one:
+        # id = np.ones_like(z)
+        # if skip_one:
         #    self.instances_position.append(pos[::2])
         #    self.instances_quaternion.append(quat[::2])
         #    self.instances_id.append(id[::2])
-        #else:
+        # else:
         #    self.instances_position.append(pos)
         #    self.instances_quaternion.append(quat)
         #    id[::2] = 0
@@ -104,11 +112,11 @@ class TrackBuilder:
     def updateInstancer(self):
         self.instances_position = np.concatenate(self.instances_position, axis=0)
         self.instances_quaternion = np.concatenate(self.instances_quaternion, axis=0)
-        #self.instances_id = np.concatenate(self.instances_id, axis=0)
+        # self.instances_id = np.concatenate(self.instances_id, axis=0)
         setInstancerParameters(
             self.stage,
             self.instancer_path,
             self.instances_position,
             quat=self.instances_quaternion,
-            #ids=self.instances_id,
+            # ids=self.instances_id,
         )
