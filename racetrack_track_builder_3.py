@@ -8,17 +8,12 @@ __status__ = "development"
 
 
 from assets_managers import AssetsManagers
-from WorldBuilders.pxr_utils import (
-    createStandaloneInstance,
-    setInstancerParameters,
-)
 from racetrack_generators import RGF
 from racetrack_configs import CFGF
 import dataclasses
 import numpy as np
 import pickle
 import torch
-import omni
 
 
 @dataclasses.dataclass
@@ -37,24 +32,26 @@ class TrackManager:
     def __init__(self, cfg: dict, num_envs: int, device: str):
         self.settings = TrackManagerConfig(**cfg)
 
-        self.stage = omni.usd.get_context().get_stage()
-        self.assets_managers = AssetsManagers()
-        self.grid_x = int(np.sqrt(self.settings.num_tracks))
-
         self.tracks = []
-        self.tracks_path = "assets/tracks.pkl"
         self.loadTracks()
 
         self.num_envs = num_envs
         self.device = device
+
+        # This data is stored as numpy arrays
         self.envs_initial_positions = np.zeros((self.num_envs, 3))
+        self.per_env_track_position = {}
+        self.per_env_track_quaternion = {}
+        self.per_env_track_id = {}
+
+        # This data is stored as torch tensors
 
     def initialize_tracks(self, initial_positions: torch.Tensor):
         self.envs_initial_positions = initial_positions.cpu().numpy()
         self.build()
 
     def loadTracks(self):
-        with open(self.tracks_path, "rb") as f:
+        with open(self.settings.tracks_path, "rb") as f:
             self.tracks = pickle.load(f)
 
     def build(self):
@@ -66,7 +63,7 @@ class TrackManager:
             self.settings.hdris_path,
         )
         self.buildFloor()
-        self.randomize()
+        self.reset_floor()
 
     def buildFloor(self):
         x_max = np.max(self.envs_initial_positions[:, 0]) + self.settings.env_spacing
@@ -88,33 +85,48 @@ class TrackManager:
             [xx.flatten(), yy.flatten(), np.zeros_like(xx.flatten())], axis=1
         )
 
-    def randomize(self):
-        self.instances_position = []
-        self.instances_quaternion = []
-        self.instances_id = []
-        for i in range(self.settings.num_tracks):
-            idx = np.random.randint(0, len(self.tracks))
-            inner = self.tracks[idx]["inner"]
-            outer = self.tracks[idx]["outer"]
+    def reset(self, env_ids: torch.Tensor):
+        env_ids = env_ids.cpu().numpy()
+        track_indices = np.random.randint(0, len(self.tracks), size=(len(env_ids)))
+        for idx, track_idx in zip(env_ids, track_indices):
+            self.per_env_track_position[idx] = (
+                np.concatenate(
+                    [
+                        self.tracks[track_idx]["inner"][0],
+                        self.tracks[track_idx]["outer"][0],
+                        np.zeros_like(self.tracks[track_idx]["inner"][0]),
+                    ],
+                    axis=0,
+                )
+                + self.envs_initial_positions[idx]
+            )
+            self.per_env_track_quaternion[idx] = np.concatenate(
+                [
+                    self.tracks[track_idx]["inner"][1],
+                    self.tracks[track_idx]["outer"][1],
+                    np.zeros_like(self.tracks[track_idx]["inner"][1]),
+                ],
+                axis=0,
+            )
+            self.per_env_track_id[idx] = np.random.randint(
+                0,
+                300,
+                self.tracks[track_idx]["inner"][0].shape[0]
+                + self.tracks[track_idx]["outer"][0].shape[0],
+            )
 
-            x_offset = (
-                i % self.grid_x
-            ) * self.settings.env_spacing + self.settings.env_spacing / 2
-            y_offset = (
-                i // self.grid_x
-            ) * self.settings.env_spacing + self.settings.env_spacing / 2
-            offset = np.array([x_offset, y_offset, 0])
-
-            self.instances_position.append(inner[0] + offset)
-            self.instances_position.append(outer[0] + offset)
-            self.instances_quaternion.append(inner[1])
-            self.instances_quaternion.append(outer[1])
-        self.updateInstancer()
-
-    def updateInstancer(self):
-        self.instances_position = np.concatenate(self.instances_position, axis=0)
-        self.instances_quaternion = np.concatenate(self.instances_quaternion, axis=0)
-        self.assets_managers.set_cone_parameters(
-            self.instances_position, quat=self.instances_quaternion
+        positions = np.concatenate(
+            [self.per_env_track_position[idx] for idx in env_ids], axis=0
         )
-        self.assets_managers.set_floor_parameters(self.floor_position)
+        quaternions = np.concatenate(
+            [self.per_env_track_quaternion[idx] for idx in env_ids], axis=0
+        )
+        ids = np.concatenate([self.per_env_track_id[idx] for idx in env_ids], axis=0)
+
+        self.AM.set_cone_parameters(positions, quat=quaternions, ids=ids)
+
+    def reset_floor(self):
+        self.AM.set_floor_parameters(self.floor_position)
+
+    def reset_skydome(self):
+        self.AM.skydome_manager.randomize()
