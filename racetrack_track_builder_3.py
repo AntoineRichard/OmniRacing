@@ -37,6 +37,8 @@ class TrackBuilderPreGen:
         )
         self.track_dictionaries = []
         self.save_path = save_path
+        obj_prim = self.stage.DefinePrim("/ground_plane", "Xform")
+        obj_prim.GetReferences().AddReference("assets/groud_plane.usd")
 
     def generate(self):
         self.instances_position = []
@@ -89,6 +91,14 @@ class TrackBuilder:
         self.assets_managers = assets_managers
         self.grid_x = int(np.sqrt(self.settings.num_tracks))
 
+        self.tracks = []
+        self.tracks_path = "assets/tracks.pkl"
+        self.loadTracks()
+
+    def loadTracks(self):
+        with open(self.tracks_path, "rb") as f:
+            self.tracks = pickle.load(f)
+
     def build(self):
         self.buildFloor()
         self.randomize()
@@ -108,34 +118,23 @@ class TrackBuilder:
         self.instances_quaternion = []
         self.instances_id = []
         for i in range(self.settings.num_tracks):
-            self.TrackGenerator.randomizeTrack()
-            # Get the track contours
-            center_line, center_line_theta = self.TrackGenerator.getCenterLine(
-                distance=self.settings.line_length * 2 * 0.6
-            )
-            inner_line, outer_line = self.TrackGenerator.getTrackBoundaries(
-                distance=self.settings.line_length * 2 * 0.6
-            )
-            inner_line, inner_line_theta = inner_line
-            outer_line, outer_line_theta = outer_line
-            # self.setInstancePoses(center_line, center_line_theta, skip_one=True)
-            x_offset = (i % self.grid_x) * self.settings.env_spacing
-            y_offset = (i // self.grid_x) * self.settings.env_spacing
-            offset = np.array([x_offset, y_offset])
-            self.GetInstancePoses(inner_line + offset + 12.0, inner_line_theta)
-            self.GetInstancePoses(outer_line + offset + 12.0, outer_line_theta)
-        self.updateInstancer()
+            idx = np.random.randint(0, len(self.tracks))
+            inner = self.tracks[idx]["inner"]
+            outer = self.tracks[idx]["outer"]
 
-    def GetInstancePoses(self, line, theta, skip_one=False):
-        quat = np.zeros((len(theta), 4))
-        quat[:, 0] = 0
-        quat[:, 1] = 0
-        quat[:, 2] = np.sin(theta / 2)
-        quat[:, 3] = np.cos(theta / 2)
-        z = np.zeros_like(line[:, 0])
-        pos = np.stack([line[:, 0], line[:, 1], z], axis=1)
-        self.instances_position.append(pos)
-        self.instances_quaternion.append(quat)
+            x_offset = (
+                i % self.grid_x
+            ) * self.settings.env_spacing + self.settings.env_spacing / 2
+            y_offset = (
+                i // self.grid_x
+            ) * self.settings.env_spacing + self.settings.env_spacing / 2
+            offset = np.array([x_offset, y_offset, 0])
+
+            self.instances_position.append(inner[0] + offset)
+            self.instances_position.append(outer[0] + offset)
+            self.instances_quaternion.append(inner[1])
+            self.instances_quaternion.append(outer[1])
+        self.updateInstancer()
 
     def updateInstancer(self):
         self.instances_position = np.concatenate(self.instances_position, axis=0)

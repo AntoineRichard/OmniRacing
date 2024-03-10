@@ -42,6 +42,7 @@ class AssetManager:
                 )
                 obj_prim = self.stage.DefinePrim(prim_path, "Xform")
                 obj_prim.GetReferences().AddReference(asset_path)
+                obj_prim.SetInstanceable(True)
                 self.instancer.GetPrototypesRel().AddTarget(prim_path)
             else:
                 variants = default_prim.GetVariantSet(
@@ -53,6 +54,7 @@ class AssetManager:
                     )
                     obj_prim = self.stage.DefinePrim(prim_path, "Xform")
                     obj_prim.GetReferences().AddReference(asset_path)
+                    obj_prim.SetInstanceable(True)
                     prim = self.stage.GetPrimAtPath(prim_path)
                     prim.GetVariantSet(self.variant_type).SetVariantSelection(variant)
                     self.instancer.GetPrototypesRel().AddTarget(prim_path)
@@ -104,12 +106,19 @@ class AssetsManagers:
         )
         self.floor_manager = AssetManager(
             path_to_asset_folder="assets/floors",
+            # variant_type="shadingVariant",
             instancer_path=os.path.join(root_path, "/floor_instancer"),
         )
         self.skydome_manager = SkyDomeManager(
             path_to_hdri_folder="assets/hdris",
             skydome_path=os.path.join(root_path, "/skydome"),
         )
+        self.load_ground_plane(root_path)
+
+    def load_ground_plane(self, root_path: str):
+        stage = omni.usd.get_context().get_stage()
+        obj_prim = stage.DefinePrim(root_path + "/ground_plane", "Xform")
+        obj_prim.GetReferences().AddReference("assets/ground_plane.usd")
 
     def set_cone_parameters(self, pos, **kwargs):
         self.cone_manager.set_instancer_parameters(pos, **kwargs)
