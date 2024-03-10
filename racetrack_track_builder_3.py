@@ -1,113 +1,88 @@
-import omni
+__author__ = "Antoine Richard"
+__copyright__ = "Copyright 2023-24, Antoine Richard"
+__license__ = "GPL"
+__version__ = "0.1.0"
+__maintainer__ = "Antoine Richard"
+__email__ = "antoine0richard@gmail.com"
+__status__ = "development"
+
+
+from assets_managers import AssetsManagers
 from WorldBuilders.pxr_utils import (
     createStandaloneInstance,
     setInstancerParameters,
 )
-from racetrack_utils import createCubeLikeObject, bindMaterial
+from racetrack_generators import RGF
+from racetrack_configs import CFGF
 import dataclasses
-from pxr import Sdf, Gf, UsdGeom
 import numpy as np
 import pickle
-
-from racetrack_configs import CFGF
-from racetrack_generators import RGF
-from assets_managers import AssetsManagers
+import torch
+import omni
 
 
 @dataclasses.dataclass
-class TrackBuilderConfig:
-    name: str = dataclasses.field(default_factory=str)
-    line_thickness: float = dataclasses.field(default_factory=float)
-    line_length: float = dataclasses.field(default_factory=float)
-    line_width: float = dataclasses.field(default_factory=float)
-    num_tracks: int = dataclasses.field(default_factory=int)
+class TrackManagerConfig:
+    tracks_path: str = dataclasses.field(default_factory=str)
     env_spacing: float = dataclasses.field(default_factory=float)
+    assets_root_path: str = dataclasses.field(default_factory=str)
+    cones_path: str = dataclasses.field(default_factory=str)
+    floors_path: str = dataclasses.field(default_factory=str)
+    hdris_path: str = dataclasses.field(default_factory=str)
+
     track_config: dict = None
 
-    def __post_init__(self):
-        self.track_config = CFGF(self.track_config["name"], self.track_config)
 
+class TrackManager:
+    def __init__(self, cfg: dict, num_envs: int, device: str):
+        self.settings = TrackManagerConfig(**cfg)
 
-class TrackBuilderPreGen:
-    def __init__(self, cfg: TrackBuilderConfig, save_path: str = None):
-        self.settings = cfg
         self.stage = omni.usd.get_context().get_stage()
-        self.TrackGenerator = RGF(
-            self.settings.track_config.name, self.settings.track_config
-        )
-        self.track_dictionaries = []
-        self.save_path = save_path
-        obj_prim = self.stage.DefinePrim("/ground_plane", "Xform")
-        obj_prim.GetReferences().AddReference("assets/groud_plane.usd")
-
-    def generate(self):
-        self.instances_position = []
-        self.instances_quaternion = []
-        self.instances_id = []
-        for i in range(self.settings.num_tracks):
-            self.TrackGenerator.randomizeTrack()
-            # Get the track contours
-            center_line, center_line_theta = self.TrackGenerator.getCenterLine(
-                distance=self.settings.line_length * 2 * 0.6
-            )
-            inner_line, outer_line = self.TrackGenerator.getTrackBoundaries(
-                distance=self.settings.line_length * 2 * 0.6
-            )
-            inner_line, inner_line_theta = inner_line
-            outer_line, outer_line_theta = outer_line
-            in_pos, in_quat = self.GetPoses(inner_line, inner_line_theta)
-            out_pos, out_quat = self.GetPoses(outer_line, outer_line_theta)
-            center_pos, center_quat = self.GetPoses(center_line, center_line_theta)
-            dict = {
-                "inner": (in_pos, in_quat),
-                "outer": (out_pos, out_quat),
-                "center": (center_pos, center_quat),
-            }
-            self.track_dictionaries.append(dict)
-        self.save()
-
-    def GetPoses(self, line, theta, skip_one=False):
-        quat = np.zeros((len(theta), 4))
-        quat[:, 0] = 0
-        quat[:, 1] = 0
-        quat[:, 2] = np.sin(theta / 2)
-        quat[:, 3] = np.cos(theta / 2)
-        z = np.zeros_like(line[:, 0])
-        pos = np.stack([line[:, 0], line[:, 1], z], axis=1)
-        return pos, quat
-
-    def save(self):
-        with open(self.save_path, "wb") as f:
-            pickle.dump(self.track_dictionaries, f)
-
-
-class TrackBuilder:
-    def __init__(self, cfg: TrackBuilderConfig, assets_managers: AssetsManagers):
-        self.settings = cfg
-        self.stage = omni.usd.get_context().get_stage()
-        self.TrackGenerator = RGF(
-            self.settings.track_config.name, self.settings.track_config
-        )
-        self.assets_managers = assets_managers
+        self.assets_managers = AssetsManagers()
         self.grid_x = int(np.sqrt(self.settings.num_tracks))
 
         self.tracks = []
         self.tracks_path = "assets/tracks.pkl"
         self.loadTracks()
 
+        self.num_envs = num_envs
+        self.device = device
+        self.envs_initial_positions = np.zeros((self.num_envs, 3))
+
+    def initialize_tracks(self, initial_positions: torch.Tensor):
+        self.envs_initial_positions = initial_positions.cpu().numpy()
+        self.build()
+
     def loadTracks(self):
         with open(self.tracks_path, "rb") as f:
             self.tracks = pickle.load(f)
 
     def build(self):
+        self.loadTracks()
+        self.AM = AssetsManagers(
+            self.settings.assets_root_path,
+            self.settings.cones_path,
+            self.settings.floors_path,
+            self.settings.hdris_path,
+        )
         self.buildFloor()
         self.randomize()
 
     def buildFloor(self):
-        x_max = int(self.grid_x * self.settings.env_spacing)
-        y_max = int(self.settings.num_tracks // self.grid_x * self.settings.env_spacing)
-        x = np.linspace(0, 3 * (x_max // 3), x_max // 3, endpoint=False)
-        y = np.linspace(0, 3 * (y_max // 3), y_max // 3, endpoint=False)
+        x_max = np.max(self.envs_initial_positions[:, 0]) + self.settings.env_spacing
+        y_max = np.max(self.envs_initial_positions[:, 1]) + self.settings.env_spacing
+        x_min = np.min(self.envs_initial_positions[:, 0]) - self.settings.env_spacing
+        y_min = np.min(self.envs_initial_positions[:, 1]) - self.settings.env_spacing
+        dx = x_max - x_min
+        dy = y_max - y_min
+
+        x = np.linspace(
+            x_min, x_min + int(1 + dx / 3) * 3, 2 + int(dx / 3), endpoint=True
+        )
+        y = np.linspace(
+            y_min, y_min + int(1 + dy / 3) * 3, 2 + int(dy / 3), endpoint=True
+        )
+
         xx, yy = np.meshgrid(x, y)
         self.floor_position = np.stack(
             [xx.flatten(), yy.flatten(), np.zeros_like(xx.flatten())], axis=1

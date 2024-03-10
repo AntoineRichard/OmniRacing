@@ -1,3 +1,12 @@
+__author__ = "Antoine Richard"
+__copyright__ = "Copyright 2023-24, Antoine Richard"
+__license__ = "GPL"
+__version__ = "0.1.0"
+__maintainer__ = "Antoine Richard"
+__email__ = "antoine0richard@gmail.com"
+__status__ = "development"
+
+
 from omni.isaac.kit import SimulationApp
 
 # Start the simulation

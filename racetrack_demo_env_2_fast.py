@@ -1,3 +1,11 @@
+__author__ = "Antoine Richard"
+__copyright__ = "Copyright 2023-24, Antoine Richard"
+__license__ = "GPL"
+__version__ = "0.1.0"
+__maintainer__ = "Antoine Richard"
+__email__ = "antoine0richard@gmail.com"
+__status__ = "development"
+
 from omni.isaac.kit import SimulationApp
 
 # Start the simulation
@@ -36,7 +44,6 @@ if __name__ == "__main__":
     physics_ctx = world.get_physics_context()
     physics_ctx.set_solver_type("PGS")
 
-    AM = AssetsManagers("/World")
     track_cfg = TrackBuilderConfig(**track_cfg)
 
     TB = TrackBuilder(track_cfg, AM)

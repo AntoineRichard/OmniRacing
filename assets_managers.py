@@ -1,3 +1,12 @@
+__author__ = "Antoine Richard"
+__copyright__ = "Copyright 2023-24, Antoine Richard"
+__license__ = "GPL"
+__version__ = "0.1.0"
+__maintainer__ = "Antoine Richard"
+__email__ = "antoine0richard@gmail.com"
+__status__ = "development"
+
+
 from WorldBuilders.pxr_utils import createXform
 from WorldBuilders.pxr_utils import (
     createStandaloneInstance,
@@ -98,19 +107,25 @@ class SkyDomeManager:
 
 
 class AssetsManagers:
-    def __init__(self, root_path: str = "instancers"):
+    def __init__(
+        self,
+        root_path: str = "instancers",
+        cones_path: str = "assets/cones",
+        floors_path: str = "assets/floors",
+        hdris_path: str = "assets/hdris",
+    ):
         self.cone_manager = AssetManager(
-            path_to_asset_folder="assets/cones",
+            path_to_asset_folder=cones_path,
             variant_type="shadingVariant",
             instancer_path=os.path.join(root_path, "/cone_instancer"),
         )
         self.floor_manager = AssetManager(
-            path_to_asset_folder="assets/floors",
+            path_to_asset_folder=floors_path,
             # variant_type="shadingVariant",
             instancer_path=os.path.join(root_path, "/floor_instancer"),
         )
         self.skydome_manager = SkyDomeManager(
-            path_to_hdri_folder="assets/hdris",
+            path_to_hdri_folder=hdris_path,
             skydome_path=os.path.join(root_path, "/skydome"),
         )
         self.load_ground_plane(root_path)
