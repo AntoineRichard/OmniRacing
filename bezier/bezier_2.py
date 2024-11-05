@@ -1,12 +1,9 @@
-import time
-import torch
-import numpy as np
 from scipy.special import binom
 import matplotlib.pyplot as plt
-from geo_complexity import complexity
-import pickle
-import matplotlib.cm as cm
+import numpy as np
+import torch
 import math
+import time
 
 bernstein = lambda n, k, t: binom(n, k) * t**k * (1.0 - t) ** (n - k)
 torch.manual_seed(0)
